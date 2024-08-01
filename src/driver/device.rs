@@ -413,7 +413,8 @@ impl Device {
             let elapsed_millis = elapsed.as_millis();
 
             if elapsed_millis > 0 {
-                warn!("waited for {} ms", elapsed_millis);
+                // TODO too noisy
+                //warn!("waited for {} ms", elapsed_millis);
             }
         }
 

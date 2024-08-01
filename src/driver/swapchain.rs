@@ -377,7 +377,7 @@ impl Swapchain {
         let present_mode_preference = if self.info.sync_display {
             vec![vk::PresentModeKHR::FIFO_RELAXED, vk::PresentModeKHR::FIFO]
         } else {
-            vec![vk::PresentModeKHR::MAILBOX, vk::PresentModeKHR::IMMEDIATE]
+            vec![vk::PresentModeKHR::IMMEDIATE, vk::PresentModeKHR::MAILBOX]
         };
 
         let present_modes = unsafe {

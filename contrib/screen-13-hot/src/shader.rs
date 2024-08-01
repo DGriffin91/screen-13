@@ -1,3 +1,4 @@
+use log::{debug, error};
 pub use shaderc::{OptimizationLevel, SourceLanguage, SpirvVersion};
 
 use {
