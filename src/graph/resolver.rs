@@ -2819,10 +2819,14 @@ impl Resolver {
             // Write the manually bound things (access, read, and write functions)
             for (descriptor, (node_idx, view_info)) in exec.bindings.iter() {
                 let (descriptor_set_idx, dst_binding, binding_offset) = descriptor.into_tuple();
-                let (descriptor_info, _) = pipeline
-                        .descriptor_bindings()
-                        .get(&Descriptor { set: descriptor_set_idx, binding: dst_binding })
-                        .unwrap_or_else(|| panic!("descriptor {descriptor_set_idx}.{dst_binding}[{binding_offset}] specified in recorded execution of pass \"{}\" was not discovered through shader reflection", &pass.name));
+                let Some((descriptor_info, _)) = pipeline.descriptor_bindings().get(&Descriptor {
+                    set: descriptor_set_idx,
+                    binding: dst_binding,
+                }) else {
+                    continue;
+                };
+                //.unwrap_or_else(|| panic!("descriptor {descriptor_set_idx}.{dst_binding}[{binding_offset}] specified in recorded execution of pass \"{}\" was not discovered through shader reflection", &pass.name));
+
                 let descriptor_type = descriptor_info.descriptor_type();
                 let bound_node = &bindings[*node_idx];
                 if let Some(image) = bound_node.as_driver_image() {
