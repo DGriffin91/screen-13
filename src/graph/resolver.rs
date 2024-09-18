@@ -617,6 +617,7 @@ impl Resolver {
                 },
             )?;
 
+            // let start_g = std::time::Instant::now();
             unsafe {
                 cmd_buf.device.cmd_begin_render_pass(
                     **cmd_buf,
@@ -641,6 +642,7 @@ impl Resolver {
                     vk::SubpassContents::INLINE,
                 );
             }
+            // println!("{} cmd_begin_render_pass elapsed {:?}", &pass.name, start_g.elapsed()); // TODO Griffin temp leak testing https://github.com/attackgoat/screen-13/issues/87
 
             Ok(())
         })

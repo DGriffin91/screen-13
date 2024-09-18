@@ -23,7 +23,8 @@ use {
 pub struct Display {
     cmd_buf_idx: usize,
     cmd_bufs: Box<[CommandBuffer]>,
-    pool: Box<dyn ResolverPool>,
+    /// temporarily pub so it can be reset to workaround leak https://github.com/attackgoat/screen-13/issues/87
+    pub pool: Box<dyn ResolverPool>,
 }
 
 impl Display {
