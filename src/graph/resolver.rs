@@ -2247,7 +2247,10 @@ impl Resolver {
         );
 
         // Optimize the schedule; leasing the required stuff it needs
-        self.reorder_scheduled_passes(schedule, end_pass_idx);
+
+        // TODO perf Griffin quite slow. reorder_scheduled_passes tends to be the thing that takes the longest in a given frame.
+        //self.reorder_scheduled_passes(schedule, end_pass_idx);
+
         self.merge_scheduled_passes(&mut schedule.passes);
         self.lease_scheduled_resources(pool, &schedule.passes)?;
 
