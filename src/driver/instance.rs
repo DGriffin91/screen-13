@@ -128,10 +128,18 @@ impl Instance {
             .map(|raw_name| raw_name.as_ptr())
             .collect();
         let app_desc = vk::ApplicationInfo::default().api_version(vk::API_VERSION_1_2);
+
+        let create_flags = if cfg!(any(target_os = "macos", target_os = "ios")) {
+            vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
+        } else {
+            vk::InstanceCreateFlags::default()
+        };
+
         let instance_desc = vk::InstanceCreateInfo::default()
             .application_info(&app_desc)
             .enabled_layer_names(&layer_names)
-            .enabled_extension_names(&instance_extensions);
+            .enabled_extension_names(&instance_extensions)
+            .flags(create_flags);
 
         let instance = unsafe {
             entry.create_instance(&instance_desc, None).map_err(|_| {
