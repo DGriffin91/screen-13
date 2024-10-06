@@ -229,14 +229,6 @@ impl Device {
             })?
             .to_vec();
 
-        // https://github.com/ash-rs/ash/blob/59163296473aa6cb72ee0c4a63b25d7bb9823616/ash-examples/src/lib.rs#L233
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        {
-            required_extensions.push(ash::khr::portability_enumeration::NAME.as_ptr());
-            // Enabling this extension is a requirement when using `VK_KHR_portability_subset`
-            required_extensions.push(ash::khr::get_physical_device_properties2::NAME.as_ptr());
-        }
-
         let required_extensions = required_extensions
             .iter()
             .map(|ext| unsafe { CStr::from_ptr(*ext as *const _) });
