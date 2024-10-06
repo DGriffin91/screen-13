@@ -122,9 +122,25 @@ impl Instance {
         // https://github.com/ash-rs/ash/blob/59163296473aa6cb72ee0c4a63b25d7bb9823616/ash-examples/src/lib.rs#L233
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
-            required_extensions.push(ash::khr::portability_enumeration::NAME);
-            // Enabling this extension is a requirement when using `VK_KHR_portability_subset`
-            required_extensions.push(ash::khr::get_physical_device_properties2::NAME);
+            let available_extensions = unsafe {
+                entry
+                    .enumerate_instance_extension_properties(None)
+                    .expect("Failed to enumerate instance extensions")
+            };
+
+            //dbg!(&available_extensions);
+
+            let portability_enumeration_available = available_extensions.iter().any(|ext| {
+                let cstr_extension_name =
+                    unsafe { CStr::from_ptr(ext.extension_name.as_ptr() as *const c_char) };
+                cstr_extension_name == ash::khr::portability_enumeration::NAME
+            });
+
+            if portability_enumeration_available {
+                required_extensions.push(ash::khr::portability_enumeration::NAME);
+                // Enabling this extension is a requirement when using `VK_KHR_portability_subset`
+                required_extensions.push(ash::khr::get_physical_device_properties2::NAME);
+            }
         }
 
         let instance_extensions = required_extensions
