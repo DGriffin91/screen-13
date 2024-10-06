@@ -219,14 +219,28 @@ impl Device {
 
             DriverError::Unsupported
         })?;
-        let required_extensions = enumerate_required_extensions(display_handle.as_raw())
+
+        #[allow(unused_mut)]
+        let mut required_extensions = enumerate_required_extensions(display_handle.as_raw())
             .map_err(|err| {
                 warn!("{err}");
 
                 DriverError::Unsupported
             })?
+            .to_vec();
+
+        // https://github.com/ash-rs/ash/blob/59163296473aa6cb72ee0c4a63b25d7bb9823616/ash-examples/src/lib.rs#L233
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            required_extensions.push(ash::khr::portability_enumeration::NAME.as_ptr());
+            // Enabling this extension is a requirement when using `VK_KHR_portability_subset`
+            required_extensions.push(ash::khr::get_physical_device_properties2::NAME.as_ptr());
+        }
+
+        let required_extensions = required_extensions
             .iter()
             .map(|ext| unsafe { CStr::from_ptr(*ext as *const _) });
+
         let instance = Instance::create(debug, required_extensions)?;
 
         Self::create(instance, select_physical_device, true)
