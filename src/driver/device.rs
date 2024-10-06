@@ -96,6 +96,9 @@ impl Device {
             enabled_ext_names.push(ext::index_type_uint8::NAME.as_ptr());
         }
 
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        enabled_ext_names.push(khr::portability_subset::NAME.as_ptr());
+
         let priorities = repeat(1.0)
             .take(
                 physical_device
