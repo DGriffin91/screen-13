@@ -327,7 +327,7 @@ impl Resolver {
                 lhs_depth_stencil.is_some() && rhs_depth_stencil.is_some();
 
             // Keep color and depth on tile.
-            if common_color_attachment || common_depth_attachment {
+            if common_color_attachment && common_depth_attachment {
                 trace!("  merging due to common image");
 
                 return true;
