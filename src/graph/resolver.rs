@@ -246,6 +246,16 @@ impl Resolver {
                 return false;
             }
 
+            if lhs_exec.color_attachments.len() != rhs_exec.color_attachments.len() {
+                return false;
+            }
+
+            if lhs_exec.depth_stencil_attachment.is_some()
+                != rhs_exec.depth_stencil_attachment.is_some()
+            {
+                return false;
+            }
+
             // Compare individual color attachments for compatibility
             for (attachment_idx, lhs_attachment) in lhs_exec
                 .color_attachments
@@ -317,7 +327,7 @@ impl Resolver {
                 lhs_depth_stencil.is_some() && rhs_depth_stencil.is_some();
 
             // Keep color and depth on tile.
-            if common_color_attachment || common_depth_attachment {
+            if common_color_attachment && common_depth_attachment {
                 trace!("  merging due to common image");
 
                 return true;
@@ -2230,7 +2240,10 @@ impl Resolver {
         );
 
         // Optimize the schedule; leasing the required stuff it needs
-        self.reorder_scheduled_passes(schedule, end_pass_idx);
+
+        // TODO perf Griffin quite slow. reorder_scheduled_passes tends to be the thing that takes the longest in a given frame.
+        //self.reorder_scheduled_passes(schedule, end_pass_idx);
+
         self.merge_scheduled_passes(&mut schedule.passes);
         self.lease_scheduled_resources(pool, &schedule.passes)?;
 
@@ -2460,6 +2473,20 @@ impl Resolver {
                 )
             })
         {
+            width = width.min(attachment_width);
+            height = height.min(attachment_height);
+        }
+
+        if let Some((attachment_width, attachment_height)) =
+            first_exec.depth_stencil_clear.map(|(attachment, _)| {
+                let info = bindings[attachment.target].as_driver_image().unwrap().info;
+                (info.width, info.height)
+            })
+        {
+            if (width, height) != (u32::MAX, u32::MAX) {
+                assert_eq!(width, attachment_width);
+                assert_eq!(height, attachment_height);
+            }
             width = width.min(attachment_width);
             height = height.min(attachment_height);
         }
@@ -2838,10 +2865,18 @@ impl Resolver {
             // Write the manually bound things (access, read, and write functions)
             for (descriptor, (node_idx, view_info)) in exec.bindings.iter() {
                 let (descriptor_set_idx, dst_binding, binding_offset) = descriptor.into_tuple();
-                let (descriptor_info, _) = pipeline
-                        .descriptor_bindings()
-                        .get(&Descriptor { set: descriptor_set_idx, binding: dst_binding })
-                        .unwrap_or_else(|| panic!("descriptor {descriptor_set_idx}.{dst_binding}[{binding_offset}] specified in recorded execution of pass \"{}\" was not discovered through shader reflection", &pass.name));
+                //let (descriptor_info, _) = pipeline
+                //        .descriptor_bindings()
+                //        .get(&Descriptor { set: descriptor_set_idx, binding: dst_binding })
+                //        .unwrap_or_else(|| panic!("descriptor {descriptor_set_idx}.{dst_binding}[{binding_offset}] specified in recorded execution of pass \"{}\" was not discovered through shader reflection", &pass.name));
+
+                let Some((descriptor_info, _)) = pipeline.descriptor_bindings().get(&Descriptor {
+                    set: descriptor_set_idx,
+                    binding: dst_binding,
+                }) else {
+                    continue;
+                };
+
                 let descriptor_type = descriptor_info.descriptor_type();
                 let bound_node = &bindings[*node_idx];
                 if let Some(image) = bound_node.as_driver_image() {

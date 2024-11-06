@@ -23,7 +23,7 @@ use {
 pub struct Display {
     cmd_buf_idx: usize,
     cmd_bufs: Box<[CommandBuffer]>,
-    pool: Box<dyn ResolverPool>,
+    pub pool: Box<dyn ResolverPool>,
 }
 
 impl Display {

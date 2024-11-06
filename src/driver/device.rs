@@ -96,6 +96,9 @@ impl Device {
             enabled_ext_names.push(ext::index_type_uint8::NAME.as_ptr());
         }
 
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        enabled_ext_names.push(khr::portability_subset::NAME.as_ptr());
+
         let priorities = repeat(1.0)
             .take(
                 physical_device
@@ -219,14 +222,19 @@ impl Device {
 
             DriverError::Unsupported
         })?;
-        let required_extensions = enumerate_required_extensions(display_handle.as_raw())
+        #[allow(unused_mut)]
+        let mut required_extensions = enumerate_required_extensions(display_handle.as_raw())
             .map_err(|err| {
                 warn!("{err}");
 
                 DriverError::Unsupported
             })?
+            .to_vec();
+
+        let required_extensions = required_extensions
             .iter()
             .map(|ext| unsafe { CStr::from_ptr(*ext as *const _) });
+
         let instance = Instance::create(debug, required_extensions)?;
 
         Self::create(instance, select_physical_device, true)
@@ -413,7 +421,8 @@ impl Device {
             let elapsed_millis = elapsed.as_millis();
 
             if elapsed_millis > 0 {
-                warn!("waited for {} ms", elapsed_millis);
+                // TODO too noisy
+                // warn!("waited for {} ms", elapsed_millis);
             }
         }
 
