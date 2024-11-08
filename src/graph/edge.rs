@@ -1,3 +1,4 @@
+/// Graph Edge
 use {
     super::{
         pass_ref::{PassRef, PipelinePassRef},
@@ -18,7 +19,9 @@ use {
 /// A marker trait that says some graph object can transition into a different
 /// graph object; it is a one-way transition unless the other direction has
 /// been implemented too.
+
 pub trait Edge<Graph> {
+    /// A marker that says some graph object can transition into a different graph object
     type Result;
 }
 

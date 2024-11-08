@@ -6,7 +6,7 @@ pub mod node;
 pub mod pass_ref;
 
 mod binding;
-mod edge;
+pub mod edge;
 mod info;
 mod resolver;
 mod swapchain;
