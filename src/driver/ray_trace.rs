@@ -73,13 +73,13 @@ impl RayTracePipeline {
     /// # use screen_13::driver::ray_trace::{RayTracePipeline, RayTracePipelineInfo, RayTraceShaderGroup};
     /// # use screen_13::driver::shader::Shader;
     /// # fn main() -> Result<(), DriverError> {
-    /// # let device = Arc::new(Device::create_headless(DeviceInfo::new())?);
+    /// # let device = Arc::new(Device::create_headless(DeviceInfo::default())?);
     /// # let my_rgen_code = [0u8; 1];
     /// # let my_chit_code = [0u8; 1];
     /// # let my_miss_code = [0u8; 1];
     /// # let my_shadow_code = [0u8; 1];
     /// // shader code is raw SPIR-V code as bytes
-    /// let info = RayTracePipelineInfo::new().max_ray_recursion_depth(1);
+    /// let info = RayTracePipelineInfo::default().to_builder().max_ray_recursion_depth(1);
     /// let pipeline = RayTracePipeline::create(
     ///     &device,
     ///     info,
@@ -225,7 +225,7 @@ impl RayTracePipeline {
             let pipeline = ray_trace_ext
                 .create_ray_tracing_pipelines(
                     vk::DeferredOperationKHR::null(),
-                    vk::PipelineCache::null(),
+                    Device::pipeline_cache(device),
                     &[vk::RayTracingPipelineCreateInfoKHR::default()
                         .stages(&shader_stages)
                         .groups(&shader_groups)
@@ -445,10 +445,7 @@ pub struct RayTracePipelineInfo {
 
 impl RayTracePipelineInfo {
     /// Creates a default `RayTracePipelineInfoBuilder`.
-    #[allow(clippy::new_ret_no_self)]
-    #[deprecated = "Use RayTracePipelineInfo::default()"]
-    #[doc(hidden)]
-    pub fn new() -> RayTracePipelineInfoBuilder {
+    pub fn builder() -> RayTracePipelineInfoBuilder {
         Default::default()
     }
 

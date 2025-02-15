@@ -25,7 +25,7 @@ pub(crate) struct AttachmentInfo {
     pub final_layout: vk::ImageLayout,
 }
 
-impl<'a> From<AttachmentInfo> for vk::AttachmentDescription2<'a> {
+impl From<AttachmentInfo> for vk::AttachmentDescription2<'_> {
     fn from(value: AttachmentInfo) -> Self {
         vk::AttachmentDescription2::default()
             .flags(value.flags)
@@ -63,7 +63,7 @@ pub(crate) struct AttachmentRef {
     pub layout: vk::ImageLayout,
 }
 
-impl<'a> From<AttachmentRef> for vk::AttachmentReference2<'a> {
+impl From<AttachmentRef> for vk::AttachmentReference2<'_> {
     fn from(attachment_ref: AttachmentRef) -> Self {
         vk::AttachmentReference2::default()
             .attachment(attachment_ref.attachment)
@@ -85,8 +85,6 @@ pub(crate) struct FramebufferAttachmentImageInfo {
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct FramebufferInfo {
     pub attachments: Vec<FramebufferAttachmentImageInfo>,
-    pub width: u32,
-    pub height: u32,
 }
 
 #[derive(Debug, Eq, Hash, PartialEq)]
@@ -172,6 +170,7 @@ impl RenderPass {
                 subpass.depth_stencil_resolve_attachment.map(
                     |(_, depth_resolve_mode, stencil_resolve_mode)| {
                         vk::SubpassDescriptionDepthStencilResolve::default()
+                            .depth_stencil_resolve_attachment(subpass_attachments.last().unwrap())
                             .depth_resolve_mode(
                                 depth_resolve_mode.map(Into::into).unwrap_or_default(),
                             )
@@ -292,8 +291,8 @@ impl RenderPass {
         let mut create_info = vk::FramebufferCreateInfo::default()
             .flags(vk::FramebufferCreateFlags::IMAGELESS)
             .render_pass(this.render_pass)
-            .width(key.width)
-            .height(key.height)
+            .width(attachments[0].width)
+            .height(attachments[0].height)
             .layers(layers)
             .push_next(&mut imageless_info);
         create_info.attachment_count = this.info.attachments.len() as _;
@@ -426,7 +425,7 @@ impl RenderPass {
 
         let pipeline = unsafe {
             this.device.create_graphics_pipelines(
-                vk::PipelineCache::null(),
+                Device::pipeline_cache(&this.device),
                 from_ref(&graphic_pipeline_info),
                 None,
             )
@@ -527,7 +526,7 @@ impl SubpassDependency {
     }
 }
 
-impl<'a> From<SubpassDependency> for vk::SubpassDependency2<'a> {
+impl From<SubpassDependency> for vk::SubpassDependency2<'_> {
     fn from(value: SubpassDependency) -> Self {
         vk::SubpassDependency2::default()
             .src_subpass(value.src_subpass)

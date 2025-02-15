@@ -2,11 +2,12 @@ mod profile_with_puffin;
 
 use {
     bmfont::{BMFont, OrdinateOrientation},
+    clap::Parser,
     image::ImageReader,
     inline_spirv::inline_spirv,
     screen_13::prelude::*,
     screen_13_fx::*,
-    screen_13_window::Window,
+    screen_13_window::WindowBuilder,
     std::{io::Cursor, sync::Arc, time::Instant},
 };
 
@@ -15,7 +16,8 @@ fn main() -> anyhow::Result<()> {
     profile_with_puffin::init();
 
     // Standard Screen 13 stuff
-    let window = Window::new()?;
+    let args = Args::parse();
+    let window = WindowBuilder::default().debug(args.debug).build()?;
     let display = GraphicPresenter::new(&window.device)?;
     let mut image_loader = ImageLoader::new(&window.device)?;
     let mut pool = HashPool::new(&window.device);
@@ -142,11 +144,7 @@ fn main() -> anyhow::Result<()> {
             .record_compute(move |compute, _| {
                 compute
                     .push_constants(&elapsed_time.as_secs_f32().to_ne_bytes())
-                    .dispatch(
-                        (frame.width + subgroup_size - 1) / subgroup_size,
-                        frame.height,
-                        1,
-                    );
+                    .dispatch(frame.width.div_ceil(subgroup_size), frame.height, 1);
             });
 
         // Print some text onto the image
@@ -162,4 +160,11 @@ fn main() -> anyhow::Result<()> {
     })?;
 
     Ok(())
+}
+
+#[derive(Parser)]
+struct Args {
+    /// Enable Vulkan SDK validation layers
+    #[arg(long)]
+    debug: bool,
 }

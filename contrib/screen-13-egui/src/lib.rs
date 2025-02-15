@@ -3,10 +3,11 @@ pub mod prelude {
 }
 
 pub use egui;
+use egui_winit::winit::raw_window_handle::HasDisplayHandle;
 
 use {
     bytemuck::cast_slice,
-    egui_winit::winit::{event::Event, event_loop::EventLoop, window::Window},
+    egui_winit::winit::{event::Event, window::Window},
     screen_13::prelude::*,
     std::{borrow::Cow, collections::HashMap, sync::Arc},
 };
@@ -22,7 +23,7 @@ pub struct Egui {
 }
 
 impl Egui {
-    pub fn new(device: &Arc<Device>, event_loop: &EventLoop<()>) -> Self {
+    pub fn new(device: &Arc<Device>, display_target: &dyn HasDisplayHandle) -> Self {
         let ppl = Arc::new(
             GraphicPipeline::create(
                 device,
@@ -66,7 +67,7 @@ impl Egui {
         let egui_winit = egui_winit::State::new(
             ctx.clone(),
             egui::ViewportId::ROOT,
-            event_loop,
+            display_target,
             None,
             None,
             max_texture_side,

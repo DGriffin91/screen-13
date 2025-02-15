@@ -716,7 +716,7 @@ pub struct Shader {
     /// # use screen_13::driver::device::{Device, DeviceInfo};
     /// # use screen_13::driver::shader::{Shader, SpecializationInfo};
     /// # fn main() -> Result<(), DriverError> {
-    /// # let device = Arc::new(Device::create_headless(DeviceInfo::new())?);
+    /// # let device = Arc::new(Device::create_headless(DeviceInfo::default())?);
     /// # let my_shader_code = [0u8; 1];
     /// // We instead specify 42 for MY_COUNT:
     /// let shader = Shader::new_fragment(my_shader_code.as_slice())
@@ -1146,7 +1146,11 @@ impl Shader {
             .flatten()
             .map(|push_const| {
                 let offset = push_const.offset.unwrap_or_default();
-                let size = push_const.ty.nbyte().unwrap_or_default();
+                let size = push_const
+                    .ty
+                    .nbyte()
+                    .unwrap_or_default()
+                    .next_multiple_of(4);
                 offset..offset + size
             })
             .reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
