@@ -11,6 +11,8 @@ mod info;
 mod resolver;
 mod swapchain;
 
+use crate::driver::block_dimensions;
+
 pub use self::{
     binding::{Bind, Unbind},
     resolver::Resolver,
@@ -645,16 +647,17 @@ impl RenderGraph {
         let mut pass = self.begin_pass("copy buffer to image");
 
         for region in regions.as_ref() {
+            let (block_height, block_width) = block_dimensions(dst_info.fmt);
+            let block_bytes_size = format_texel_block_size(dst_info.fmt);
+            let data_size = (region.buffer_row_length / block_width)
+                * block_bytes_size
+                * (region.buffer_image_height / block_height);
+
             pass = pass
                 .access_node_subrange(
                     src_node,
                     AccessType::TransferRead,
-                    region.buffer_offset
-                        ..region.buffer_offset
-                            + (region.buffer_row_length
-                                * format_texel_block_size(dst_info.fmt)
-                                * region.buffer_image_height)
-                                as vk::DeviceSize,
+                    region.buffer_offset..region.buffer_offset + data_size as vk::DeviceSize,
                 )
                 .access_node_subrange(
                     dst_node,
@@ -841,6 +844,12 @@ impl RenderGraph {
         let mut pass = self.begin_pass("copy image to buffer");
 
         for region in regions.as_ref() {
+            let (block_height, block_width) = block_dimensions(src_info.fmt);
+            let block_bytes_size = format_texel_block_size(src_info.fmt);
+            let data_size = (region.buffer_row_length / block_width)
+                * block_bytes_size
+                * (region.buffer_image_height / block_height);
+
             pass = pass
                 .access_node_subrange(
                     src_node,
@@ -850,12 +859,7 @@ impl RenderGraph {
                 .access_node_subrange(
                     dst_node,
                     AccessType::TransferWrite,
-                    region.buffer_offset
-                        ..region.buffer_offset
-                            + (region.buffer_row_length
-                                * format_texel_block_size(src_info.fmt)
-                                * region.buffer_image_height)
-                                as vk::DeviceSize,
+                    region.buffer_offset..region.buffer_offset + data_size as vk::DeviceSize,
                 );
         }
 
