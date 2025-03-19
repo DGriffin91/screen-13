@@ -915,7 +915,7 @@ impl Shader {
     pub(super) fn descriptor_bindings(&self) -> DescriptorBindingMap {
         let mut res = DescriptorBindingMap::default();
 
-        for (name, descriptor, desc_ty, binding_count) in
+        for (name, descriptor, desc_ty, mut binding_count) in
             self.entry_point.vars.iter().filter_map(|var| match var {
                 Variable::Descriptor {
                     name,
@@ -943,6 +943,10 @@ impl Shader {
                 *desc_ty,
                 binding_count
             );
+
+            if "Texture2DTable" == name.as_deref().unwrap_or_default() {
+                binding_count = 0;
+            }
 
             let descriptor_info = match desc_ty {
                 DescriptorType::AccelStruct() => {

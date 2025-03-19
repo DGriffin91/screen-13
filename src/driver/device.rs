@@ -98,6 +98,9 @@ impl Device {
             enabled_ext_names.push(ext::index_type_uint8::NAME.as_ptr());
         }
 
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        enabled_ext_names.push(khr::portability_subset::NAME.as_ptr());
+
         let priorities = repeat(1.0)
             .take(
                 physical_device
@@ -471,7 +474,8 @@ impl Device {
             let elapsed_millis = elapsed.as_millis();
 
             if elapsed_millis > 0 {
-                warn!("waited for {} ms", elapsed_millis);
+                // TODO too noisy
+                // warn!("waited for {} ms", elapsed_millis);
             }
         }
 

@@ -148,6 +148,34 @@ impl Instance {
         let entry = ash_molten::load();
 
         let required_extensions = required_extensions.collect::<Vec<_>>();
+
+        #[allow(unused_mut)]
+        let mut required_extensions = required_extensions.into_iter().collect::<Vec<_>>();
+
+        // https://github.com/ash-rs/ash/blob/59163296473aa6cb72ee0c4a63b25d7bb9823616/ash-examples/src/lib.rs#L233
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            let available_extensions = unsafe {
+                entry
+                    .enumerate_instance_extension_properties(None)
+                    .expect("Failed to enumerate instance extensions")
+            };
+
+            //dbg!(&available_extensions);
+
+            let portability_enumeration_available = available_extensions.iter().any(|ext| {
+                let cstr_extension_name =
+                    unsafe { CStr::from_ptr(ext.extension_name.as_ptr() as *const c_char) };
+                cstr_extension_name == ash::khr::portability_enumeration::NAME
+            });
+
+            if portability_enumeration_available {
+                required_extensions.push(ash::khr::portability_enumeration::NAME);
+                // Enabling this extension is a requirement when using `VK_KHR_portability_subset`
+                required_extensions.push(ash::khr::get_physical_device_properties2::NAME);
+            }
+        }
+
         let instance_extensions = required_extensions
             .iter()
             .map(|ext| ext.as_ptr())
@@ -159,10 +187,18 @@ impl Instance {
             .map(|raw_name| raw_name.as_ptr())
             .collect();
         let app_desc = vk::ApplicationInfo::default().api_version(vk::API_VERSION_1_2);
+
+        let create_flags = if cfg!(any(target_os = "macos", target_os = "ios")) {
+            vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
+        } else {
+            vk::InstanceCreateFlags::default()
+        };
+
         let instance_desc = vk::InstanceCreateInfo::default()
             .application_info(&app_desc)
             .enabled_layer_names(&layer_names)
-            .enabled_extension_names(&instance_extensions);
+            .enabled_extension_names(&instance_extensions)
+            .flags(create_flags);
 
         let instance = unsafe {
             entry.create_instance(&instance_desc, None).map_err(|_| {
