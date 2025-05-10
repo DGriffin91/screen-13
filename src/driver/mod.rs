@@ -44,10 +44,7 @@ mod descriptor_set;
 mod descriptor_set_layout;
 mod instance;
 
-// HACK: Custom vk-sync until a fork is published or PRs get merged
-#[allow(unused)]
-#[path = "../../contrib/vk-sync/src/lib.rs"]
-pub(crate) mod vk_sync;
+pub use vk_sync;
 
 pub use {
     self::{cmd_buf::CommandBuffer, instance::Instance},
@@ -488,7 +485,13 @@ pub(super) const fn is_write_access(ty: AccessType) -> bool {
         | RayTracingShaderReadDepthStencilInputAttachment
         | RayTracingShaderReadAccelerationStructure
         | RayTracingShaderReadOther
-        | AccelerationStructureBuildRead => false,
+        | AccelerationStructureBuildRead
+        | MeshShaderReadUniformBuffer
+        | MeshShaderReadSampledImageOrUniformTexelBuffer
+        | MeshShaderReadOther
+        | TaskShaderReadUniformBuffer
+        | TaskShaderReadSampledImageOrUniformTexelBuffer
+        | TaskShaderReadOther => false,
         CommandBufferWriteNVX
         | VertexShaderWrite
         | TessellationControlShaderWrite
@@ -508,7 +511,9 @@ pub(super) const fn is_write_access(ty: AccessType) -> bool {
         | General
         | AccelerationStructureBuildWrite
         | AccelerationStructureBufferWrite
-        | ComputeShaderReadWrite => true,
+        | ComputeShaderReadWrite
+        | MeshShaderWrite
+        | TaskShaderWrite => true,
     }
 }
 
@@ -798,6 +803,14 @@ pub(super) const fn pipeline_stage_access_flags(
             stage::ACCELERATION_STRUCTURE_BUILD_KHR,
             access::TRANSFER_WRITE,
         ),
+        ty::MeshShaderReadUniformBuffer => todo!(),
+        ty::MeshShaderReadSampledImageOrUniformTexelBuffer => todo!(),
+        ty::MeshShaderReadOther => todo!(),
+        ty::TaskShaderReadUniformBuffer => todo!(),
+        ty::TaskShaderReadSampledImageOrUniformTexelBuffer => todo!(),
+        ty::TaskShaderReadOther => todo!(),
+        ty::MeshShaderWrite => todo!(),
+        ty::TaskShaderWrite => todo!(),
     }
 }
 
