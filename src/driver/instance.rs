@@ -7,7 +7,6 @@ use {
         fmt::{Debug, Formatter},
         ops::Deref,
         os::raw::c_char,
-        process::abort,
         thread::panicking,
     },
 };
@@ -18,7 +17,7 @@ use {
     std::{
         env::var,
         ffi::c_void,
-        process::id,
+        process::{abort, id},
         thread::{current, park},
     },
 };
@@ -133,7 +132,9 @@ impl Instance {
     ) -> Result<Self, DriverError> {
         // Required to enable non-uniform descriptor indexing (bindless)
         #[cfg(target_os = "macos")]
-        set_var("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "1");
+        unsafe {
+            set_var("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "1");
+        }
 
         #[cfg(not(target_os = "macos"))]
         let entry = unsafe {

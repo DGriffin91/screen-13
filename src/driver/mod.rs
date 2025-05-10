@@ -44,7 +44,8 @@ mod descriptor_set;
 mod descriptor_set_layout;
 mod instance;
 
-//// HACK: Custom vk-sync until a fork is published or PRs get merged
+// HACK: Custom vk-sync until a fork is published or PRs get merged
+#[allow(unused)]
 #[path = "../../contrib/vk-sync/src/lib.rs"]
 pub(crate) mod vk_sync;
 

@@ -161,9 +161,14 @@ impl Swapchain {
 
     #[profiling::function]
     fn destroy_swapchain(device: &Device, swapchain: &mut vk::SwapchainKHR) {
-        // TODO: Any cases where we need to wait for idle here?
-
         if *swapchain != vk::SwapchainKHR::null() {
+            // wait for device to be finished with swapchain before destroying it.
+            // This avoid crashes when resizing windows
+            #[cfg(target_os = "macos")]
+            if let Err(err) = unsafe { device.device_wait_idle() } {
+                warn!("device_wait_idle() failed: {err}");
+            }
+
             let swapchain_ext = Device::expect_swapchain_ext(device);
 
             unsafe {
@@ -374,8 +379,6 @@ impl Swapchain {
             })
             .collect::<Result<Box<_>, _>>()?;
 
-        debug_assert_eq!(desired_image_count, images.len() as u32);
-
         self.info.height = surface_height;
         self.info.width = surface_width;
         self.images = images;
@@ -401,6 +404,12 @@ impl Swapchain {
         let info: SwapchainInfo = info.into();
 
         if self.info != info {
+            // attempt to reducing flickering when resizing windows on mac
+            #[cfg(target_os = "macos")]
+            if let Err(err) = unsafe { self.device.device_wait_idle() } {
+                warn!("device_wait_idle() failed: {err}");
+            }
+
             self.info = info;
 
             trace!("info: {:?}", self.info);
@@ -442,6 +451,10 @@ impl Swapchain {
 
             res |= usage;
         }
+
+        // On mesa the device will return this usage flag as supported even when the extension
+        // that is needed for an image to have this flag isn't enabled
+        res &= !vk::ImageUsageFlags::ATTACHMENT_FEEDBACK_LOOP_EXT;
 
         Ok(res)
     }
