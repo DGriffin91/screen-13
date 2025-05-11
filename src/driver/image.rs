@@ -1,7 +1,7 @@
 //! Image resource types
 
 use {
-    super::{DriverError, device::Device, format_aspect_mask, vk_sync::AccessType},
+    super::{DriverError, device::Device, format_aspect_mask},
     ash::vk,
     derive_builder::{Builder, UninitializedFieldError},
     gpu_allocator::{
@@ -17,6 +17,7 @@ use {
         sync::Arc,
         thread::panicking,
     },
+    vk_sync::AccessType,
 };
 
 #[cfg(feature = "parking_lot")]
@@ -741,7 +742,12 @@ impl ImageInfo {
     /// Specifies a cube image.
     #[inline(always)]
     pub const fn cube(size: u32, fmt: vk::Format, usage: vk::ImageUsageFlags) -> ImageInfo {
-        Self::new(ImageType::Cube, size, size, 1, 1, fmt, usage)
+        let mut res = Self::new(ImageType::Cube, size, size, 1, 6, fmt, usage);
+        res.flags = vk::ImageCreateFlags::from_raw(
+            vk::ImageCreateFlags::CUBE_COMPATIBLE.as_raw() | res.flags.as_raw(),
+        );
+
+        res
     }
 
     /// Specifies a one-dimensional image.

@@ -44,8 +44,6 @@ mod descriptor_set;
 mod descriptor_set_layout;
 mod instance;
 
-pub use vk_sync;
-
 pub use {
     self::{cmd_buf::CommandBuffer, instance::Instance},
     ash::{self},
@@ -803,14 +801,18 @@ pub(super) const fn pipeline_stage_access_flags(
             stage::ACCELERATION_STRUCTURE_BUILD_KHR,
             access::TRANSFER_WRITE,
         ),
-        ty::MeshShaderReadUniformBuffer => todo!(),
-        ty::MeshShaderReadSampledImageOrUniformTexelBuffer => todo!(),
-        ty::MeshShaderReadOther => todo!(),
-        ty::TaskShaderReadUniformBuffer => todo!(),
-        ty::TaskShaderReadSampledImageOrUniformTexelBuffer => todo!(),
-        ty::TaskShaderReadOther => todo!(),
-        ty::MeshShaderWrite => todo!(),
-        ty::TaskShaderWrite => todo!(),
+        ty::MeshShaderReadUniformBuffer => (stage::MESH_SHADER_EXT, access::SHADER_READ),
+        ty::MeshShaderReadSampledImageOrUniformTexelBuffer => {
+            (stage::MESH_SHADER_EXT, access::SHADER_READ)
+        }
+        ty::MeshShaderReadOther => (stage::MESH_SHADER_EXT, access::SHADER_READ),
+        ty::TaskShaderReadUniformBuffer => (stage::TASK_SHADER_EXT, access::SHADER_READ),
+        ty::TaskShaderReadSampledImageOrUniformTexelBuffer => {
+            (stage::TASK_SHADER_EXT, access::SHADER_READ)
+        }
+        ty::TaskShaderReadOther => (stage::TASK_SHADER_EXT, access::SHADER_READ),
+        ty::MeshShaderWrite => (stage::MESH_SHADER_EXT, access::SHADER_WRITE),
+        ty::TaskShaderWrite => (stage::TASK_SHADER_EXT, access::SHADER_WRITE),
     }
 }
 
