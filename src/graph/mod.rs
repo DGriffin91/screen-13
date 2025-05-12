@@ -30,11 +30,11 @@ use {
         pass_ref::{AttachmentIndex, Bindings, Descriptor, PassRef, SubresourceAccess, ViewType},
     },
     crate::driver::{
-        DescriptorBindingMap, block_dimensions,
+        DescriptorBindingMap,
         buffer::Buffer,
         compute::ComputePipeline,
         device::Device,
-        format_aspect_mask, format_texel_block_size,
+        format_aspect_mask, format_texel_block_extent, format_texel_block_size,
         graphic::{DepthStencilMode, GraphicPipeline},
         image::{ImageType, ImageViewInfo, SampleCount},
         image_subresource_range_from_layers,
@@ -653,10 +653,10 @@ impl RenderGraph {
         let mut pass = self.begin_pass("copy buffer to image");
 
         for region in regions.as_ref() {
-            let (block_height, block_width) = block_dimensions(dst_info.fmt);
             let block_bytes_size = format_texel_block_size(dst_info.fmt);
-            let data_size = (region.buffer_row_length / block_width)
-                * block_bytes_size
+            let (block_height, block_width) = format_texel_block_extent(dst_info.fmt);
+            let data_size = block_bytes_size
+                * (region.buffer_row_length / block_width)
                 * (region.buffer_image_height / block_height);
 
             pass = pass
@@ -850,10 +850,10 @@ impl RenderGraph {
         let mut pass = self.begin_pass("copy image to buffer");
 
         for region in regions.as_ref() {
-            let (block_height, block_width) = block_dimensions(src_info.fmt);
             let block_bytes_size = format_texel_block_size(src_info.fmt);
-            let data_size = (region.buffer_row_length / block_width)
-                * block_bytes_size
+            let (block_height, block_width) = format_texel_block_extent(src_info.fmt);
+            let data_size = block_bytes_size
+                * (region.buffer_row_length / block_width)
                 * (region.buffer_image_height / block_height);
 
             pass = pass
