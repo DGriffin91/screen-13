@@ -14,7 +14,7 @@ use {
             buffer::Buffer,
             format_aspect_mask,
             graphic::{DepthStencilMode, GraphicPipeline},
-            image::{Image, ImageAccess, ImageViewInfo},
+            image::{Image, ImageAccess},
             image_access_layout, initial_image_layout_access, is_read_access, is_write_access,
             pipeline_stage_access_flags,
             swapchain::SwapchainImage,
@@ -440,18 +440,8 @@ impl Resolver {
                         attachment_image.layer_count = attachment.array_layer_count;
                         attachment_image.view_formats.insert(idx, attachment.format);
 
-                        image_views[*attachment_idx as usize] = Image::view(
-                            image,
-                            ImageViewInfo {
-                                array_layer_count: attachment.array_layer_count,
-                                aspect_mask: attachment.aspect_mask,
-                                base_array_layer: attachment.base_array_layer,
-                                base_mip_level: attachment.base_mip_level,
-                                fmt: attachment.format,
-                                mip_level_count: attachment.mip_level_count,
-                                ty: image.info.ty,
-                            },
-                        )?;
+                        image_views[*attachment_idx as usize] =
+                            Image::view(image, attachment.image_view_info(image.info))?;
                     }
                 }
 
@@ -478,18 +468,8 @@ impl Resolver {
                         attachment_image.layer_count = attachment.array_layer_count;
                         attachment_image.view_formats.insert(idx, attachment.format);
 
-                        image_views[*attachment_idx as usize] = Image::view(
-                            image,
-                            ImageViewInfo {
-                                array_layer_count: attachment.array_layer_count,
-                                aspect_mask: attachment.aspect_mask,
-                                base_array_layer: attachment.base_array_layer,
-                                base_mip_level: attachment.base_mip_level,
-                                fmt: attachment.format,
-                                mip_level_count: attachment.mip_level_count,
-                                ty: image.info.ty,
-                            },
-                        )?;
+                        image_views[*attachment_idx as usize] =
+                            Image::view(image, attachment.image_view_info(image.info))?;
                     }
                 }
 
@@ -514,18 +494,8 @@ impl Resolver {
                         attachment_image.layer_count = attachment.array_layer_count;
                         attachment_image.view_formats.insert(idx, attachment.format);
 
-                        image_views[attachment_idx] = Image::view(
-                            image,
-                            ImageViewInfo {
-                                array_layer_count: attachment.array_layer_count,
-                                aspect_mask: attachment.aspect_mask,
-                                base_array_layer: attachment.base_array_layer,
-                                base_mip_level: attachment.base_mip_level,
-                                fmt: attachment.format,
-                                mip_level_count: attachment.mip_level_count,
-                                ty: image.info.ty,
-                            },
-                        )?;
+                        image_views[attachment_idx] =
+                            Image::view(image, attachment.image_view_info(image.info))?;
                     }
                 }
 
@@ -550,18 +520,8 @@ impl Resolver {
                         attachment_image.layer_count = attachment.array_layer_count;
                         attachment_image.view_formats.insert(idx, attachment.format);
 
-                        image_views[attachment_idx] = Image::view(
-                            image,
-                            ImageViewInfo {
-                                array_layer_count: attachment.array_layer_count,
-                                aspect_mask: attachment.aspect_mask,
-                                base_array_layer: attachment.base_array_layer,
-                                base_mip_level: attachment.base_mip_level,
-                                fmt: attachment.format,
-                                mip_level_count: attachment.mip_level_count,
-                                ty: image.info.ty,
-                            },
-                        )?;
+                        image_views[attachment_idx] =
+                            Image::view(image, attachment.image_view_info(image.info))?;
                     }
                 }
 
@@ -584,18 +544,8 @@ impl Resolver {
                         attachment_image.layer_count = attachment.array_layer_count;
                         attachment_image.view_formats.insert(idx, attachment.format);
 
-                        image_views[attachment_idx] = Image::view(
-                            image,
-                            ImageViewInfo {
-                                array_layer_count: attachment.array_layer_count,
-                                aspect_mask: attachment.aspect_mask,
-                                base_array_layer: attachment.base_array_layer,
-                                base_mip_level: attachment.base_mip_level,
-                                fmt: attachment.format,
-                                mip_level_count: attachment.mip_level_count,
-                                ty: image.info.ty,
-                            },
-                        )?;
+                        image_views[attachment_idx] =
+                            Image::view(image, attachment.image_view_info(image.info))?;
                     }
                 }
             }
@@ -1039,56 +989,54 @@ impl Resolver {
                 }
 
                 // Stored depth/stencil attachment
-                if !depth_stencil_set {
-                    if let Some(stored_attachment) = exec.depth_stencil_store {
-                        let attachment = &mut attachments[color_attachment_count];
-                        attachment.fmt = stored_attachment.format;
-                        attachment.sample_count = stored_attachment.sample_count;
-                        attachment.final_layout = if stored_attachment
-                            .aspect_mask
-                            .contains(vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL)
-                        {
-                            attachment.store_op = vk::AttachmentStoreOp::STORE;
-                            attachment.stencil_store_op = vk::AttachmentStoreOp::STORE;
+                if !depth_stencil_set && let Some(stored_attachment) = exec.depth_stencil_store {
+                    let attachment = &mut attachments[color_attachment_count];
+                    attachment.fmt = stored_attachment.format;
+                    attachment.sample_count = stored_attachment.sample_count;
+                    attachment.final_layout = if stored_attachment
+                        .aspect_mask
+                        .contains(vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL)
+                    {
+                        attachment.store_op = vk::AttachmentStoreOp::STORE;
+                        attachment.stencil_store_op = vk::AttachmentStoreOp::STORE;
 
-                            vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-                        } else if stored_attachment
-                            .aspect_mask
-                            .contains(vk::ImageAspectFlags::DEPTH)
-                        {
-                            attachment.store_op = vk::AttachmentStoreOp::STORE;
+                        vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                    } else if stored_attachment
+                        .aspect_mask
+                        .contains(vk::ImageAspectFlags::DEPTH)
+                    {
+                        attachment.store_op = vk::AttachmentStoreOp::STORE;
 
-                            vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL
-                        } else {
-                            attachment.stencil_store_op = vk::AttachmentStoreOp::STORE;
+                        vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL
+                    } else {
+                        attachment.stencil_store_op = vk::AttachmentStoreOp::STORE;
 
-                            vk::ImageLayout::STENCIL_ATTACHMENT_OPTIMAL
-                        };
-                        depth_stencil_set = true;
-                    }
+                        vk::ImageLayout::STENCIL_ATTACHMENT_OPTIMAL
+                    };
+                    depth_stencil_set = true;
                 }
 
                 // Resolved depth/stencil attachment
-                if !depth_stencil_resolve_set {
-                    if let Some((resolved_attachment, ..)) = exec.depth_stencil_resolve {
-                        let attachment = attachments.last_mut().unwrap();
-                        attachment.fmt = resolved_attachment.format;
-                        attachment.sample_count = resolved_attachment.sample_count;
-                        attachment.final_layout = if resolved_attachment
-                            .aspect_mask
-                            .contains(vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL)
-                        {
-                            vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-                        } else if resolved_attachment
-                            .aspect_mask
-                            .contains(vk::ImageAspectFlags::DEPTH)
-                        {
-                            vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL
-                        } else {
-                            vk::ImageLayout::STENCIL_ATTACHMENT_OPTIMAL
-                        };
-                        depth_stencil_resolve_set = true;
-                    }
+                if !depth_stencil_resolve_set
+                    && let Some((resolved_attachment, ..)) = exec.depth_stencil_resolve
+                {
+                    let attachment = attachments.last_mut().unwrap();
+                    attachment.fmt = resolved_attachment.format;
+                    attachment.sample_count = resolved_attachment.sample_count;
+                    attachment.final_layout = if resolved_attachment
+                        .aspect_mask
+                        .contains(vk::ImageAspectFlags::DEPTH | vk::ImageAspectFlags::STENCIL)
+                    {
+                        vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+                    } else if resolved_attachment
+                        .aspect_mask
+                        .contains(vk::ImageAspectFlags::DEPTH)
+                    {
+                        vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL
+                    } else {
+                        vk::ImageLayout::STENCIL_ATTACHMENT_OPTIMAL
+                    };
+                    depth_stencil_resolve_set = true;
                 }
             }
         }
@@ -2328,13 +2276,17 @@ impl Resolver {
                         next_access,
                     );
 
+                    // Color Attachment Read/Write (blending) will prevent discarding contents.
+                    // Note that we must check "not-read" because some reads write!
+                    let discard_contents =
+                        *prev_access == AccessType::Nothing || !is_read_access(*next_access);
+
                     ImageBarrier {
                         next_accesses: from_ref(next_access),
                         next_layout: image_access_layout(*next_access),
                         previous_accesses: from_ref(prev_access),
                         previous_layout: image_access_layout(*prev_access),
-                        discard_contents: *prev_access == AccessType::Nothing
-                            || is_write_access(*next_access),
+                        discard_contents,
                         src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
                         dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
                         image: *image,
@@ -3207,15 +3159,14 @@ impl Resolver {
                             let image_range = late.subresource.as_image().unwrap();
                             let image_binding = &bindings[attachment.target];
                             let image = image_binding.as_driver_image().unwrap();
-                            let image_view_info = ImageViewInfo {
-                                array_layer_count: image_range.layer_count,
-                                aspect_mask: attachment.aspect_mask,
-                                base_array_layer: image_range.base_array_layer,
-                                base_mip_level: image_range.base_mip_level,
-                                fmt: attachment.format,
-                                mip_level_count: image_range.level_count,
-                                ty: image.info.ty,
-                            };
+                            let image_view_info = attachment
+                                .image_view_info(image.info)
+                                .to_builder()
+                                .array_layer_count(image_range.layer_count)
+                                .base_array_layer(image_range.base_array_layer)
+                                .base_mip_level(image_range.base_mip_level)
+                                .mip_level_count(image_range.level_count)
+                                .build();
                             let image_view = Image::view(image, image_view_info)?;
 
                             tls.image_writes.push(IndexWrite {

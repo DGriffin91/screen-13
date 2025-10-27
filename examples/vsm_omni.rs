@@ -133,14 +133,13 @@ fn main() -> anyhow::Result<()> {
         }
 
         // Hit F12 to enable exclusive fullscreen
-        if input.key_pressed(KeyCode::F12) {
-            if let Some(monitor) = frame.window.current_monitor() {
-                if let Some(video_mode) = monitor.video_modes().next() {
-                    frame
-                        .window
-                        .set_fullscreen(Some(Fullscreen::Exclusive(video_mode)));
-                }
-            }
+        if input.key_pressed(KeyCode::F12)
+            && let Some(monitor) = frame.window.current_monitor()
+            && let Some(video_mode) = monitor.video_modes().next()
+        {
+            frame
+                .window
+                .set_fullscreen(Some(Fullscreen::Exclusive(video_mode)));
         }
 
         // Hit Escape to cancel fullscreen or exit
@@ -394,7 +393,7 @@ fn main() -> anyhow::Result<()> {
                     shadow_faces_node,
                     shadow_faces_info
                         .default_view_info()
-                        .with_ty(ImageType::Cube),
+                        .with_type(vk::ImageViewType::CUBE),
                 )
                 .access_node(model_mesh_index_buf, AccessType::IndexBuffer)
                 .access_node(model_mesh_vertex_buf, AccessType::VertexBuffer)

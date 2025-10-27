@@ -181,7 +181,7 @@ impl Swapchain {
 
     /// Gets information about this swapchain.
     pub fn info(&self) -> SwapchainInfo {
-        self.info
+        self.info.clone()
     }
 
     /// Presents an image which has been previously acquired using
@@ -250,50 +250,29 @@ impl Swapchain {
     fn recreate_swapchain(&mut self) -> Result<(), DriverError> {
         Self::destroy_swapchain(&self.device, &mut self.old_swapchain);
 
-        let (surface_capabilities, present_modes) = {
-            let surface_ext = Device::expect_surface_ext(&self.device);
-            let surface_capabilities = unsafe {
-                surface_ext.get_physical_device_surface_capabilities(
-                    *self.device.physical_device,
-                    *self.surface,
-                )
-            }
-            .inspect_err(|err| warn!("unable to get surface capabilities: {err}"))
-            .or(Err(DriverError::Unsupported))?;
-
-            let present_modes = unsafe {
-                surface_ext.get_physical_device_surface_present_modes(
-                    *self.device.physical_device,
-                    *self.surface,
-                )
-            }
-            .inspect_err(|err| warn!("unable to get surface present modes: {err}"))
-            .or(Err(DriverError::Unsupported))?;
-
-            (surface_capabilities, present_modes)
-        };
+        let surface_caps = Surface::capabilities(&self.surface)?;
+        let present_modes = Surface::present_modes(&self.surface)?;
 
         let desired_image_count =
-            Self::clamp_desired_image_count(self.info.desired_image_count, surface_capabilities);
+            Self::clamp_desired_image_count(self.info.desired_image_count, surface_caps);
 
-        let image_usage =
-            self.supported_surface_usage(surface_capabilities.supported_usage_flags)?;
+        let image_usage = self.supported_surface_usage(surface_caps.supported_usage_flags)?;
 
-        let (surface_width, surface_height) = match surface_capabilities.current_extent.width {
+        let (surface_width, surface_height) = match surface_caps.current_extent.width {
             std::u32::MAX => (
                 // TODO: Maybe handle this case with aspect-correct clamping?
                 self.info.width.clamp(
-                    surface_capabilities.min_image_extent.width,
-                    surface_capabilities.max_image_extent.width,
+                    surface_caps.min_image_extent.width,
+                    surface_caps.max_image_extent.width,
                 ),
                 self.info.height.clamp(
-                    surface_capabilities.min_image_extent.height,
-                    surface_capabilities.max_image_extent.height,
+                    surface_caps.min_image_extent.height,
+                    surface_caps.max_image_extent.height,
                 ),
             ),
             _ => (
-                surface_capabilities.current_extent.width,
-                surface_capabilities.current_extent.height,
+                surface_caps.current_extent.width,
+                surface_caps.current_extent.height,
             ),
         };
 
@@ -301,23 +280,21 @@ impl Swapchain {
             return Err(DriverError::Unsupported);
         }
 
-        let present_mode_preference = if self.info.sync_display {
-            vec![vk::PresentModeKHR::FIFO_RELAXED, vk::PresentModeKHR::FIFO]
-        } else {
-            vec![vk::PresentModeKHR::IMMEDIATE, vk::PresentModeKHR::MAILBOX]
-        };
-        let present_mode = present_mode_preference
-            .into_iter()
+        let present_mode = self
+            .info
+            .present_modes
+            .iter()
+            .copied()
             .find(|mode| present_modes.contains(mode))
             .unwrap_or(vk::PresentModeKHR::FIFO);
 
-        let pre_transform = if surface_capabilities
+        let pre_transform = if surface_caps
             .supported_transforms
             .contains(vk::SurfaceTransformFlagsKHR::IDENTITY)
         {
             vk::SurfaceTransformFlagsKHR::IDENTITY
         } else {
-            surface_capabilities.current_transform
+            surface_caps.current_transform
         };
 
         let swapchain_ext = Device::expect_swapchain_ext(&self.device);
@@ -518,10 +495,10 @@ impl Deref for SwapchainImage {
 }
 
 /// Information used to create a [`Swapchain`] instance.
-#[derive(Builder, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Builder, Clone, Debug, Eq, Hash, PartialEq)]
 #[builder(
     build_fn(private, name = "fallible_build", error = "SwapchainInfoBuilderError"),
-    derive(Clone, Copy, Debug),
+    derive(Clone, Debug),
     pattern = "owned"
 )]
 #[non_exhaustive]
@@ -538,12 +515,48 @@ pub struct SwapchainInfo {
     /// The format and color space of the surface.
     pub surface: vk::SurfaceFormatKHR,
 
-    /// Determines if frames will be submitted to the display in a synchronous fashion or if they
-    /// should be displayed as fast as possible instead.
+    /// `vk::PresentModeKHR` Determines timing and queueing with which frames are actually displayed to the user.
+    /// `present_modes` is a set of these modes ordered by preference. If the first mode is not available it will fall
+    /// back to the next, etc...    
     ///
-    /// Turn on to eliminate visual tearing at the expense of latency.
-    #[builder(default = "true")]
-    pub sync_display: bool,
+    /// `vk::PresentModeKHR::FIFO` - Presentation frames are kept in a First-In-First-Out queue approximately 3 frames
+    /// long. Every vertical blanking period, the presentation engine will pop a frame off the queue to display. If
+    /// there is no frame to display, it will present the same frame again until the next vblank.
+    ///
+    /// When a present command is executed on the GPU, the presented image is added on the queue.
+    ///
+    /// * **Tearing:** No tearing will be observed.
+    /// * **Also known as**: "Vsync On"
+    ///
+    /// `vk::PresentModeKHR::FIFO_RELAXED` - Presentation frames are kept in a First-In-First-Out queue approximately 3
+    /// frames long. Every vertical blanking period, the presentation engine will pop a frame off the queue to display.
+    /// If there is no frame to display, it will present the same frame until there is a frame in the queue. The moment
+    /// there is a frame in the queue, it will immediately pop the frame off the queue.
+    ///
+    /// When a present command is executed on the GPU, the presented image is added on the queue.
+    ///
+    /// * **Tearing**:
+    ///   Tearing will be observed if frames last more than one vblank as the front buffer.
+    /// * **Also known as**: "Adaptive Vsync"
+    ///
+    /// `vk::PresentModeKHR::IMMEDIATE` - Presentation frames are not queued at all. The moment a present command is
+    /// executed on the GPU, the presented image is swapped onto the front buffer immediately.
+    ///
+    /// * **Tearing**: Tearing can be observed.
+    /// * **Also known as**: "Vsync Off"
+    ///
+    /// `vk::PresentModeKHR::MAILBOX` - Presentation frames are kept in a single-frame queue. Every vertical blanking
+    /// period, the presentation engine will pop a frame from the queue. If there is no frame to display, it will
+    /// present the same frame again until the next vblank.
+    ///
+    /// When a present command is executed on the GPU, the frame will be put into the queue.
+    /// If there was already a frame in the queue, the new frame will _replace_ the old frame
+    /// on the queue.
+    ///
+    /// * **Tearing**: No tearing will be observed.
+    /// * **Also known as**: "Fast Vsync"
+    #[builder(default = vec![vk::PresentModeKHR::FIFO_RELAXED, vk::PresentModeKHR::FIFO])]
+    pub present_modes: Vec<vk::PresentModeKHR>,
 
     /// The initial width of the surface.
     pub width: u32,
@@ -552,13 +565,13 @@ pub struct SwapchainInfo {
 impl SwapchainInfo {
     /// Specifies a default swapchain with the given `width`, `height` and `format` values.
     #[inline(always)]
-    pub const fn new(width: u32, height: u32, surface: vk::SurfaceFormatKHR) -> SwapchainInfo {
+    pub fn new(width: u32, height: u32, surface: vk::SurfaceFormatKHR) -> SwapchainInfo {
         Self {
             width,
             height,
             surface,
             desired_image_count: 3,
-            sync_display: true,
+            present_modes: vec![vk::PresentModeKHR::FIFO_RELAXED, vk::PresentModeKHR::FIFO],
         }
     }
 
@@ -569,7 +582,7 @@ impl SwapchainInfo {
             desired_image_count: Some(self.desired_image_count),
             height: Some(self.height),
             surface: Some(self.surface),
-            sync_display: Some(self.sync_display),
+            present_modes: Some(self.present_modes),
             width: Some(self.width),
         }
     }
@@ -619,7 +632,7 @@ mod tests {
     #[test]
     pub fn swapchain_info() {
         let info = Info::new(20, 24, vk::SurfaceFormatKHR::default());
-        let builder = info.to_builder().build();
+        let builder = info.clone().to_builder().build();
 
         assert_eq!(info, builder);
     }

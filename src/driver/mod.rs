@@ -73,6 +73,7 @@ use {
         image::SampleCount,
     },
     ash::vk,
+    gpu_allocator::AllocationError,
     std::{
         cmp::Ordering,
         error::Error,
@@ -649,7 +650,77 @@ pub(super) const fn initial_image_layout_access(ty: AccessType) -> AccessType {
 }
 
 pub(super) const fn is_read_access(ty: AccessType) -> bool {
-    !is_write_access(ty)
+    use AccessType::*;
+    match ty {
+        Nothing
+        | CommandBufferWriteNVX
+        | VertexShaderWrite
+        | TessellationControlShaderWrite
+        | TessellationEvaluationShaderWrite
+        | GeometryShaderWrite
+        | FragmentShaderWrite
+        | ColorAttachmentWrite
+        | DepthStencilAttachmentWrite
+        | ComputeShaderWrite
+        | AnyShaderWrite
+        | TransferWrite
+        | HostWrite
+        | AccelerationStructureBuildWrite
+        | AccelerationStructureBufferWrite
+        | MeshShaderWrite
+        | TaskShaderWrite => false,
+        CommandBufferReadNVX
+        | IndirectBuffer
+        | IndexBuffer
+        | VertexBuffer
+        | VertexShaderReadUniformBuffer
+        | VertexShaderReadSampledImageOrUniformTexelBuffer
+        | VertexShaderReadOther
+        | TessellationControlShaderReadUniformBuffer
+        | TessellationControlShaderReadSampledImageOrUniformTexelBuffer
+        | TessellationControlShaderReadOther
+        | TessellationEvaluationShaderReadUniformBuffer
+        | TessellationEvaluationShaderReadSampledImageOrUniformTexelBuffer
+        | TessellationEvaluationShaderReadOther
+        | GeometryShaderReadUniformBuffer
+        | GeometryShaderReadSampledImageOrUniformTexelBuffer
+        | GeometryShaderReadOther
+        | FragmentShaderReadUniformBuffer
+        | FragmentShaderReadSampledImageOrUniformTexelBuffer
+        | FragmentShaderReadColorInputAttachment
+        | FragmentShaderReadDepthStencilInputAttachment
+        | FragmentShaderReadOther
+        | ColorAttachmentRead
+        | DepthStencilAttachmentRead
+        | ComputeShaderReadUniformBuffer
+        | ComputeShaderReadSampledImageOrUniformTexelBuffer
+        | ComputeShaderReadOther
+        | AnyShaderReadUniformBuffer
+        | AnyShaderReadUniformBufferOrVertexBuffer
+        | AnyShaderReadSampledImageOrUniformTexelBuffer
+        | AnyShaderReadOther
+        | TransferRead
+        | HostRead
+        | Present
+        | RayTracingShaderReadSampledImageOrUniformTexelBuffer
+        | RayTracingShaderReadColorInputAttachment
+        | RayTracingShaderReadDepthStencilInputAttachment
+        | RayTracingShaderReadAccelerationStructure
+        | RayTracingShaderReadOther
+        | AccelerationStructureBuildRead
+        | MeshShaderReadUniformBuffer
+        | MeshShaderReadSampledImageOrUniformTexelBuffer
+        | MeshShaderReadOther
+        | TaskShaderReadUniformBuffer
+        | TaskShaderReadSampledImageOrUniformTexelBuffer
+        | TaskShaderReadOther
+        | DepthStencilAttachmentReadWrite
+        | DepthAttachmentWriteStencilReadOnly
+        | StencilAttachmentWriteDepthReadOnly
+        | ColorAttachmentReadWrite
+        | General
+        | ComputeShaderReadWrite => true,
+    }
 }
 
 pub(super) const fn is_write_access(ty: AccessType) -> bool {
@@ -1048,6 +1119,22 @@ pub enum DriverError {
     ///
     /// Many drivers return this value for generic or unhandled error conditions.
     OutOfMemory,
+}
+
+impl DriverError {
+    fn from_alloc_err(err: AllocationError) -> Self {
+        match err {
+            AllocationError::OutOfMemory => Self::OutOfMemory,
+            AllocationError::InvalidAllocationCreateDesc
+            | AllocationError::InvalidAllocatorCreateDesc(_) => Self::InvalidData,
+            AllocationError::FailedToMap(_)
+            | AllocationError::NoCompatibleMemoryTypeFound
+            | AllocationError::Internal(_)
+            | AllocationError::BarrierLayoutNeedsDevice10
+            | AllocationError::CastableFormatsRequiresEnhancedBarriers
+            | AllocationError::CastableFormatsRequiresAtLeastDevice12 => Self::Unsupported,
+        }
+    }
 }
 
 impl Display for DriverError {
