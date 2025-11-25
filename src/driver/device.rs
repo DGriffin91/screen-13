@@ -75,7 +75,7 @@ impl Device {
     where
         F: FnOnce(vk::DeviceCreateInfo) -> ash::prelude::VkResult<ash::Device>,
     {
-        let mut enabled_ext_names = Vec::with_capacity(6);
+        let mut enabled_ext_names = Vec::with_capacity(7);
 
         if display_window {
             enabled_ext_names.push(khr::swapchain::NAME.as_ptr());
@@ -97,9 +97,6 @@ impl Device {
         if physical_device.index_type_uint8_features.index_type_uint8 {
             enabled_ext_names.push(ext::index_type_uint8::NAME.as_ptr());
         }
-
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        enabled_ext_names.push(khr::portability_subset::NAME.as_ptr());
 
         let priorities = repeat_n(
             1.0,

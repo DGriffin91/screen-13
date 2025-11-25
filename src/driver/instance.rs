@@ -11,7 +11,7 @@ use {
     },
 };
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(any(not(target_os = "macos"), feature = "macos-dynamic-molten-vk"))]
 use {
     log::{Level, Metadata, info, logger},
     std::{
@@ -25,7 +25,7 @@ use {
 #[cfg(target_os = "macos")]
 use std::env::set_var;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(any(not(target_os = "macos"), feature = "macos-dynamic-molten-vk"))]
 unsafe extern "system" fn vulkan_debug_callback(
     _flags: vk::DebugReportFlagsEXT,
     _obj_type: vk::DebugReportObjectTypeEXT,
@@ -136,7 +136,8 @@ impl Instance {
             set_var("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "1");
         }
 
-        #[cfg(not(target_os = "macos"))]
+        // Link molten-vk dynamically if not on MacOS, or if explicitly requested.
+        #[cfg(any(not(target_os = "macos"), feature = "macos-dynamic-molten-vk"))]
         let entry = unsafe {
             Entry::load().map_err(|err| {
                 error!("Vulkan driver not found: {err}");
@@ -144,8 +145,8 @@ impl Instance {
                 DriverError::Unsupported
             })?
         };
-
-        #[cfg(target_os = "macos")]
+        // On MacOS, by default link molten-vk statically using ash-molten.
+        #[cfg(all(target_os = "macos", not(feature = "macos-dynamic-molten-vk")))]
         let entry = ash_molten::load();
 
         let required_extensions = required_extensions.collect::<Vec<_>>();
@@ -201,32 +202,38 @@ impl Instance {
             .enabled_extension_names(&instance_extensions)
             .flags(create_flags);
 
+        // Molten-vk doesn't support the full Vulkan feature set, hence the portability flag needs to be set.
+        #[cfg(all(target_os = "macos", feature = "macos-dynamic-molten-vk"))]
+        let instance_desc = instance_desc.flags(vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR);
+
         let instance = unsafe {
-            entry.create_instance(&instance_desc, None).map_err(|_| {
-                if debug {
-                    warn!("debug may only be enabled with a valid Vulkan SDK installation");
-                }
+            entry
+                .create_instance(&instance_desc, None)
+                .map_err(|vkerr| {
+                    if debug {
+                        warn!("debug may only be enabled with a valid Vulkan SDK installation");
+                    }
+                    error!("Vulkan Error: {}", vkerr);
+                    error!("Vulkan driver does not support API v1.2");
 
-                error!("Vulkan driver does not support API v1.2");
+                    for layer_name in Self::layer_names(debug) {
+                        debug!("Layer: {:?}", layer_name);
+                    }
 
-                for layer_name in Self::layer_names(debug) {
-                    debug!("Layer: {:?}", layer_name);
-                }
+                    for extension_name in required_extensions {
+                        debug!("Extension: {:?}", extension_name);
+                    }
 
-                for extension_name in required_extensions {
-                    debug!("Extension: {:?}", extension_name);
-                }
-
-                DriverError::Unsupported
-            })?
+                    DriverError::Unsupported
+                })?
         };
 
         trace!("created a Vulkan instance");
 
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", not(feature = "macos-dynamic-molten-vk")))]
         let (debug_loader, debug_callback, debug_utils) = (None, None, None);
 
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(any(not(target_os = "macos"), feature = "macos-dynamic-molten-vk"))]
         let (debug_loader, debug_callback, debug_utils) = if debug {
             let debug_info = vk::DebugReportCallbackCreateInfoEXT {
                 flags: vk::DebugReportFlagsEXT::ERROR
@@ -291,17 +298,20 @@ impl Instance {
     unsafe fn extension_names(
         #[cfg_attr(target_os = "macos", allow(unused_variables))] debug: bool,
     ) -> Vec<*const c_char> {
-        #[cfg_attr(target_os = "macos", allow(unused_mut))]
-        let mut res = vec![];
-
-        #[cfg(not(target_os = "macos"))]
-        if debug {
-            #[allow(deprecated)]
-            res.push(ext::debug_report::NAME.as_ptr());
-            res.push(ext::debug_utils::NAME.as_ptr());
+        if cfg!(all(
+            target_os = "macos",
+            not(feature = "macos-dynamic-molten-vk")
+        )) {
+            vec![]
+        } else {
+            let mut res = vec![];
+            if debug {
+                #[allow(deprecated)]
+                res.push(ext::debug_report::NAME.as_ptr());
+                res.push(ext::debug_utils::NAME.as_ptr());
+            }
+            res
         }
-
-        res
     }
 
     /// Returns `true` if this instance was created with debug layers enabled.
@@ -312,15 +322,18 @@ impl Instance {
     fn layer_names(
         #[cfg_attr(target_os = "macos", allow(unused_variables))] debug: bool,
     ) -> Vec<CString> {
-        #[cfg_attr(target_os = "macos", allow(unused_mut))]
-        let mut res = vec![];
-
-        #[cfg(not(target_os = "macos"))]
-        if debug {
-            res.push(CString::new("VK_LAYER_KHRONOS_validation").unwrap());
+        if cfg!(all(
+            target_os = "macos",
+            not(feature = "macos-dynamic-molten-vk")
+        )) {
+            vec![]
+        } else {
+            let mut res = vec![];
+            if debug {
+                res.push(CString::new("VK_LAYER_KHRONOS_validation").unwrap());
+            }
+            res
         }
-
-        res
     }
 
     /// Returns the available physical devices of this instance.
